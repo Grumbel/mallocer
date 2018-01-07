@@ -24,12 +24,16 @@
 
 static struct argp_option options[] = {
   {"verbose",  'v', 0,      0,  "Produce verbose output" },
+  {"fill",     'f', 0,      0,  "Fill allocated memory with data" },
+  {"interval", 'i', "MSEC", 0,  "Time in milisec between allocations" },
   { 0 }
 };
 
 struct Options
 {
   bool verbose;
+  bool fill;
+  int  interval;
 };
 
 error_t parse_opt(int key, char *arg, struct argp_state *state)
@@ -44,6 +48,14 @@ error_t parse_opt(int key, char *arg, struct argp_state *state)
       opts->verbose = true;
       break;
 
+    case 'f':
+      opts->fill = true;
+      break;
+
+    case 'i':
+      opts->interval = atoi(arg);
+      break;
+
     default:
       ARGP_ERR_UNKNOWN;
       break;
@@ -54,33 +66,25 @@ error_t parse_opt(int key, char *arg, struct argp_state *state)
 
 static struct argp argp = {
   options, parse_opt,
-  "COMMAND",
+  "",
   "A program to experiment with memory allocation"
 };
 
-int main(int argc, char** argv)
+void run(struct Options* opts)
 {
-  struct Options opts = {
-    .verbose = false
-  };
-
-  argp_parse(&argp, argc, argv, 0, 0, &opts);
-
   uint8_t first_byte = 0xff;
-  if (opts.verbose)
-  {
-    printf("First byte in main is at: %p\n", &first_byte);
-    puts("mallocer is going to allocate some memory...");
-  }
+
+  printf("First byte in main is at: %p\n", &first_byte);
+  puts("mallocer is going to allocate some memory...");
 
   size_t total_heap = 0;
   while(true)
   {
     size_t len = 1024 * 1024;
-    char* buffer __attribute__((unused)) = malloc(len);
+    char* buffer = malloc(len);
     total_heap += len;
 
-    if (false)
+    if (opts->fill)
     {
       for(int i = 0; i < len; ++i)
       {
@@ -95,8 +99,21 @@ int main(int argc, char** argv)
     {
       printf("total: %zu  new memory: %zu at %p\n", total_heap, len, buffer);
     }
-    usleep(1000 * 1000);
+    usleep(opts->interval * 1000);
   }
+}
+
+int main(int argc, char** argv)
+{
+  struct Options opts = {
+    .verbose = false,
+    .fill = false,
+    .interval = 1000
+  };
+
+  argp_parse(&argp, argc, argv, 0, 0, &opts);
+
+  run(&opts);
 
   return 0;
 }
