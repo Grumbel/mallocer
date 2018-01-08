@@ -24,6 +24,10 @@
 #include <argp.h>
 #include <string.h>
 
+extern void* etext;
+extern void* edata;
+extern void* end;
+
 static struct argp_option options[] = {
   {"verbose",  'v', 0,      0,  "Produce verbose output" },
   {"fill",     'f', 0,      0,  "Fill allocated memory with data" },
@@ -136,6 +140,12 @@ void run(struct Options* opts)
   uint8_t first_byte = 0xff;
 
   printf("First byte in main is at: %p\n", &first_byte);
+
+  printf("First address past:\n");
+  printf("    program text (etext)      %10p\n", &etext);
+  printf("    initialized data (edata)  %10p\n", &edata);
+  printf("    uninitialized data (end)  %10p\n", &end);
+
   puts("mallocer is going to allocate some memory...");
 
   int alloc_index = 1;
