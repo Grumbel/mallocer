@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -21,10 +22,13 @@
 #include <time.h>
 #include <stdint.h>
 #include <argp.h>
+#include <string.h>
 
 static struct argp_option options[] = {
   {"verbose",  'v', 0,      0,  "Produce verbose output" },
   {"fill",     'f', 0,      0,  "Fill allocated memory with data" },
+  {"pattern-fill", 'F', "BYTESEQ",  0,  "Fill allocated memory with the given pattern (hex)" },
+  {"random-fill", 'r', 0,   0,  "Fill allocated memory with random data" },
   {"calloc",   'c', 0,      0,  "Use calloc() instead of malloc()" },
   {"interval", 'i', "MSEC", 0,  "Time in milisec between allocations" },
   {"increment", 'I', "BYTES", 0, "Increase allocation size by BYTES on each step" },
@@ -36,11 +40,40 @@ struct Options
 {
   bool verbose;
   bool fill;
+  char* pattern_fill;
+  size_t pattern_fill_size;
+  bool random_fill;
   bool calloc;
   size_t alloc_size;
   size_t alloc_increment;
   int  interval;
 };
+
+void fatal_error(const char* msg)
+{
+  puts(msg);
+  exit(EXIT_FAILURE);
+}
+
+void hex2bytes(const char* text, char** buf, size_t* buf_size)
+{
+  size_t len = strlen(text);
+  if (len % 2 != 0)
+  {
+    fatal_error("byte string must be multiple of two");
+  }
+
+  *buf_size = len / 2;
+  *buf = malloc(*buf_size);
+  assert(*buf);
+
+  for (size_t i = 0; i < len; i += 2) {
+    if (sscanf(text + i, "%2hhx", &(*buf)[i/2]) != 1)
+    {
+      fatal_error("incorrect bytes string");
+    }
+  }
+}
 
 error_t parse_opt(int key, char *arg, struct argp_state *state)
 {
@@ -60,6 +93,16 @@ error_t parse_opt(int key, char *arg, struct argp_state *state)
 
     case 'f':
       opts->fill = true;
+      break;
+
+    case 'F':
+      hex2bytes(arg,
+                &opts->pattern_fill,
+                &opts->pattern_fill_size);
+      break;
+
+    case 'r':
+      opts->random_fill = true;
       break;
 
     case 's':
@@ -135,6 +178,23 @@ void run(struct Options* opts)
 
     if (opts->fill)
     {
+      const char fill_pattern[] = { 0xde, 0xad, 0xbe, 0xef };
+      printf("filling memory with pattern data\n");
+      for(int i = 0; i < len; ++i)
+      {
+        buffer[i] = fill_pattern[i % sizeof(fill_pattern)];
+      }
+    }
+    else if (opts->pattern_fill)
+    {
+      printf("filling memory with custom pattern data\n");
+      for(int i = 0; i < len; ++i)
+      {
+        buffer[i] = opts->pattern_fill[i % opts->pattern_fill_size];
+      }
+    }
+    else if (opts->random_fill)
+    {
       printf("filling memory with random data\n");
       for(int i = 0; i < len; ++i)
       {
@@ -151,6 +211,9 @@ int main(int argc, char** argv)
   struct Options opts = {
     .verbose = false,
     .fill = false,
+    .pattern_fill = NULL,
+    .pattern_fill_size = 0,
+    .random_fill = false,
     .calloc = false,
     .alloc_size = 1024 * 1024,
     .alloc_increment = 0,
