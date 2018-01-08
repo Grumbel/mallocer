@@ -27,6 +27,8 @@ static struct argp_option options[] = {
   {"fill",     'f', 0,      0,  "Fill allocated memory with data" },
   {"calloc",   'c', 0,      0,  "Use calloc() instead of malloc()" },
   {"interval", 'i', "MSEC", 0,  "Time in milisec between allocations" },
+  {"increment", 'I', "BYTES", 0, "Increase allocation size by BYTES on each step" },
+  {"size",     's', "BYTES", 0, "Bytes to allocate on each step" },
   { 0 }
 };
 
@@ -35,6 +37,8 @@ struct Options
   bool verbose;
   bool fill;
   bool calloc;
+  size_t alloc_size;
+  size_t alloc_increment;
   int  interval;
 };
 
@@ -56,6 +60,14 @@ error_t parse_opt(int key, char *arg, struct argp_state *state)
 
     case 'f':
       opts->fill = true;
+      break;
+
+    case 's':
+      opts->alloc_size = strtoll(arg, NULL, 10);
+      break;
+
+    case 'I':
+      opts->alloc_increment = strtoll(arg, NULL, 10);
       break;
 
     case 'i':
@@ -83,38 +95,47 @@ void run(struct Options* opts)
   printf("First byte in main is at: %p\n", &first_byte);
   puts("mallocer is going to allocate some memory...");
 
+  int alloc_index = 1;
   size_t total_heap = 0;
+  char* last_buffer = NULL;
   while(true)
   {
-    size_t len = 1024 * 1024;
+    size_t len = opts->alloc_size + opts->alloc_increment * alloc_index;
     char* buffer;
-
     if (opts->calloc)
     {
-      printf("trying to allocate %zu with calloc()\n", len);
+      printf("%d) trying to allocate %zu with calloc()\n", alloc_index, len);
       buffer = calloc(1, len);
     }
     else
     {
-      printf("trying to allocate %zu with malloc()\n", len);
+      printf("%d) trying to allocate %zu with malloc()\n", alloc_index, len);
       buffer = malloc(len);
     }
 
     if (!buffer)
     {
-      puts("error: out of memory");
+      puts("error: out of memory, sleeping for 1sec, then trying again");
       sleep(1);
       continue;
     }
     else
     {
       total_heap += len;
-      printf("allocation succesful, new total memory: %zu at %p\n", total_heap, buffer);
+      alloc_index += 1;
+
+      printf("allocation succesful, new total memory: %zu at %p\n",
+             total_heap, buffer);
+      if (last_buffer != NULL)
+      {
+        printf("distance to last allocation %zd\n", last_buffer - buffer);
+      }
+      last_buffer = buffer;
     }
 
     if (opts->fill)
     {
-      printf("filling memory\n");
+      printf("filling memory with random data\n");
       for(int i = 0; i < len; ++i)
       {
         buffer[i] = rand() % 0xff;
@@ -131,6 +152,8 @@ int main(int argc, char** argv)
     .verbose = false,
     .fill = false,
     .calloc = false,
+    .alloc_size = 1024 * 1024,
+    .alloc_increment = 0,
     .interval = 1000
   };
 
