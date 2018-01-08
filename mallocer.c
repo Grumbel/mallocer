@@ -25,6 +25,7 @@
 static struct argp_option options[] = {
   {"verbose",  'v', 0,      0,  "Produce verbose output" },
   {"fill",     'f', 0,      0,  "Fill allocated memory with data" },
+  {"calloc",   'c', 0,      0,  "Use calloc() instead of malloc()" },
   {"interval", 'i', "MSEC", 0,  "Time in milisec between allocations" },
   { 0 }
 };
@@ -33,6 +34,7 @@ struct Options
 {
   bool verbose;
   bool fill;
+  bool calloc;
   int  interval;
 };
 
@@ -46,6 +48,10 @@ error_t parse_opt(int key, char *arg, struct argp_state *state)
   {
     case 'v':
       opts->verbose = true;
+      break;
+
+    case 'c':
+      opts->calloc = true;
       break;
 
     case 'f':
@@ -81,24 +87,40 @@ void run(struct Options* opts)
   while(true)
   {
     size_t len = 1024 * 1024;
-    char* buffer = malloc(len);
-    total_heap += len;
+    char* buffer;
+
+    if (opts->calloc)
+    {
+      printf("trying to allocate %zu with calloc()\n", len);
+      buffer = calloc(1, len);
+    }
+    else
+    {
+      printf("trying to allocate %zu with malloc()\n", len);
+      buffer = malloc(len);
+    }
+
+    if (!buffer)
+    {
+      puts("error: out of memory");
+      sleep(1);
+      continue;
+    }
+    else
+    {
+      total_heap += len;
+      printf("allocation succesful, new total memory: %zu at %p\n", total_heap, buffer);
+    }
 
     if (opts->fill)
     {
+      printf("filling memory\n");
       for(int i = 0; i < len; ++i)
       {
         buffer[i] = rand() % 0xff;
       }
     }
 
-    if (!buffer)
-    {
-      puts("out of memory");
-    }
-    {
-      printf("total: %zu  new memory: %zu at %p\n", total_heap, len, buffer);
-    }
     usleep(opts->interval * 1000);
   }
 }
@@ -108,6 +130,7 @@ int main(int argc, char** argv)
   struct Options opts = {
     .verbose = false,
     .fill = false,
+    .calloc = false,
     .interval = 1000
   };
 
