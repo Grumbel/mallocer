@@ -139,6 +139,7 @@ void run(struct Options* opts)
 {
   uint8_t first_byte = 0xff;
 
+  printf("program break according to sbrk() at %p\n", sbrk(0));
   printf("First byte in main is at: %p\n", &first_byte);
 
   printf("First address past:\n");
