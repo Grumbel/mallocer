@@ -87,6 +87,94 @@ void hex2bytes(const char* text, char** buf, size_t* buf_size)
   }
 }
 
+struct Unit
+{
+  const char* name;
+  size_t value;
+};
+
+struct Unit g_units[] =
+{
+  { "",  1ull },
+  { "K", 1024ull },
+  { "M", 1024ull * 1024 },
+  { "G", 1024ull * 1024 * 1024 },
+  { "T", 1024ull * 1024 * 1024 * 1024 },
+  { "P", 1024ull * 1024 * 1024 * 1024 * 1024 },
+  { "E", 1024ull * 1024 * 1024 * 1024 * 1024 * 1024 },
+  { "Z", 1024ull * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 },
+  { "Y", 1024ull * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 },
+
+  { "KiB", 1024ull },
+  { "MiB", 1024ull * 1024 },
+  { "GiB", 1024ull * 1024 * 1024 },
+  { "TiB", 1024ull * 1024 * 1024 * 1024 },
+  { "PiB", 1024ull * 1024 * 1024 * 1024 * 1024 },
+  { "EiB", 1024ull * 1024 * 1024 * 1024 * 1024 * 1024 },
+  { "ZiB", 1024ull * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 },
+  { "YiB", 1024ull * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 1024 },
+
+  { "kB", 1000ull },
+  { "MB", 1000ull * 1000 },
+  { "GB", 1000ull * 1000 * 1000 },
+  { "TB", 1000ull * 1000 * 1000 * 1000 },
+  { "PB", 1000ull * 1000 * 1000 * 1000 * 1000 },
+  { "EB", 1000ull * 1000 * 1000 * 1000 * 1000 * 1000 },
+  { "ZB", 1000ull * 1000 * 1000 * 1000 * 1000 * 1000 * 1000 },
+  { "YB", 1000ull * 1000 * 1000 * 1000 * 1000 * 1000 * 1000 * 1000 },
+};
+
+
+size_t apply_unit(size_t num, const char* unit)
+{
+  for(int i = 0; i < sizeof(g_units) / sizeof(g_units[0]); ++i)
+  {
+    if (strcmp(unit, g_units[i].name) == 0)
+    {
+      return num * g_units[i].value;
+    }
+  }
+  fatal_error("invalid unit name");
+  return num;
+}
+
+size_t text2bytes(const char* text)
+{
+  // find the first character that isn't a digit, this is the start of
+  // the unit string
+  const char* digit_end = text;
+  while(isdigit(*digit_end) && *digit_end != '\0')
+  {
+    ++digit_end;
+  }
+
+  // skip white space
+  const char* unit = digit_end;
+  while(isspace(*unit) && *unit != '\0')
+  {
+    ++unit;
+  }
+
+  char* endptr;
+  errno = 0;
+  size_t result = strtol(text, &endptr, 10);
+  if (errno != 0)
+  {
+    perror(text);
+    exit(EXIT_FAILURE);
+  }
+
+  if (endptr == digit_end || *endptr == '\0')
+  {
+    return apply_unit(result, unit);
+  }
+  else
+  {
+    printf("invalid bytes string: '%s'", text);
+    exit(EXIT_FAILURE);
+  }
+}
+
 error_t parse_opt(int key, char *arg, struct argp_state *state)
 {
   /* Get the input argument from argp_parse, which we
@@ -122,7 +210,7 @@ error_t parse_opt(int key, char *arg, struct argp_state *state)
       break;
 
     case 's':
-      opts->alloc_size = strtoll(arg, NULL, 10);
+      opts->alloc_size = text2bytes(arg);
       break;
 
     case 'I':
