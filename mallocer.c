@@ -213,7 +213,17 @@ void run(struct Options* opts)
       }
     }
 
-    usleep(opts->interval * 1000);
+    if (opts->interval < 0)
+    {
+      printf("going to sleep forever\n");
+      while(true) {
+        sleep(UINT_MAX);
+      }
+    }
+    else
+    {
+      usleep(opts->interval * 1000);
+    }
   }
 }
 
