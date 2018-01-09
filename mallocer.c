@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include <argp.h>
 #include <string.h>
+#include <errno.h>
 
 extern void* etext;
 extern void* edata;
@@ -38,6 +39,7 @@ static struct argp_option options[] = {
   {"count", 'c', "NUM", 0,  "Limit number of memory allocations to NUM" },
   {"increment", 'I', "BYTES", 0, "Increase allocation size by BYTES on each step" },
   {"size",     's', "BYTES", 0, "Bytes to allocate on each step" },
+  {"name",     'n', "NAME", 0, "Changes the name of the process" },
   { 0 }
 };
 
@@ -53,6 +55,7 @@ struct Options
   size_t alloc_increment;
   int max_count;
   int interval;
+  char* name;
 };
 
 void fatal_error(const char* msg)
@@ -127,6 +130,10 @@ error_t parse_opt(int key, char *arg, struct argp_state *state)
 
     case 'i':
       opts->interval = atoi(arg);
+      break;
+
+    case 'n':
+      opts->name = arg;
       break;
 
     default:
@@ -248,10 +255,22 @@ int main(int argc, char** argv)
     .alloc_size = 1024 * 1024,
     .alloc_increment = 0,
     .max_count = -1,
-    .interval = 1000
+    .interval = 1000,
+    .name = NULL
   };
 
   argp_parse(&argp, argc, argv, 0, 0, &opts);
+
+  // change the processes name
+  if (strcmp(opts.name, argv[0]) != 0)
+  {
+    argv[0] = opts.name;
+    if (execvp("/proc/self/exe", argv) < 0)
+    {
+      perror("execv failed:");
+      exit(EXIT_FAILURE);
+    }
+  }
 
   run(&opts);
 
