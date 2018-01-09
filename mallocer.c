@@ -215,7 +215,7 @@ error_t parse_opt(int key, char *arg, struct argp_state *state)
       break;
 
     case 'I':
-      opts->alloc_increment = strtoll(arg, NULL, 10);
+      opts->alloc_increment = text2bytes(arg);
       break;
 
     case 'i':
