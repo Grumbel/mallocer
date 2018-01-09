@@ -33,8 +33,9 @@ static struct argp_option options[] = {
   {"fill",     'f', 0,      0,  "Fill allocated memory with data" },
   {"pattern-fill", 'F', "BYTESEQ",  0,  "Fill allocated memory with the given pattern (hex)" },
   {"random-fill", 'r', 0,   0,  "Fill allocated memory with random data" },
-  {"calloc",   'c', 0,      0,  "Use calloc() instead of malloc()" },
+  {"calloc",   'C', 0,      0,  "Use calloc() instead of malloc()" },
   {"interval", 'i', "MSEC", 0,  "Time in milisec between allocations" },
+  {"count", 'c', "NUM", 0,  "Limit number of memory allocations to NUM" },
   {"increment", 'I', "BYTES", 0, "Increase allocation size by BYTES on each step" },
   {"size",     's', "BYTES", 0, "Bytes to allocate on each step" },
   { 0 }
@@ -50,7 +51,8 @@ struct Options
   bool calloc;
   size_t alloc_size;
   size_t alloc_increment;
-  int  interval;
+  int max_count;
+  int interval;
 };
 
 void fatal_error(const char* msg)
@@ -59,6 +61,8 @@ void fatal_error(const char* msg)
   exit(EXIT_FAILURE);
 }
 
+/** Given a text string in hex form, convert it to a newly allocated
+    sequence of bytes. The caller is responsible to free() 'buf'. */
 void hex2bytes(const char* text, char** buf, size_t* buf_size)
 {
   size_t len = strlen(text);
@@ -91,8 +95,12 @@ error_t parse_opt(int key, char *arg, struct argp_state *state)
       opts->verbose = true;
       break;
 
-    case 'c':
+    case 'C':
       opts->calloc = true;
+      break;
+
+    case 'c':
+      opts->max_count = atoi(arg);
       break;
 
     case 'f':
@@ -149,21 +157,21 @@ void run(struct Options* opts)
 
   puts("mallocer is going to allocate some memory...");
 
-  int alloc_index = 1;
+  int alloc_count = 1;
   size_t total_heap = 0;
   char* last_buffer = NULL;
   while(true)
   {
-    size_t len = opts->alloc_size + opts->alloc_increment * alloc_index;
+    size_t len = opts->alloc_size + opts->alloc_increment * (alloc_count - 1);
     char* buffer;
     if (opts->calloc)
     {
-      printf("%d) trying to allocate %zu with calloc()\n", alloc_index, len);
+      printf("%d) trying to allocate %zu with calloc()\n", alloc_count, len);
       buffer = calloc(1, len);
     }
     else
     {
-      printf("%d) trying to allocate %zu with malloc()\n", alloc_index, len);
+      printf("%d) trying to allocate %zu with malloc()\n", alloc_count, len);
       buffer = malloc(len);
     }
 
@@ -176,7 +184,7 @@ void run(struct Options* opts)
     else
     {
       total_heap += len;
-      alloc_index += 1;
+      alloc_count += 1;
 
       printf("allocation succesful, new total memory: %zu at %p\n",
              total_heap, buffer);
@@ -213,7 +221,8 @@ void run(struct Options* opts)
       }
     }
 
-    if (opts->interval < 0)
+    if (opts->interval < 0 ||
+        (opts->max_count != -1 && alloc_count > opts->max_count))
     {
       printf("going to sleep forever\n");
       while(true) {
@@ -238,6 +247,7 @@ int main(int argc, char** argv)
     .calloc = false,
     .alloc_size = 1024 * 1024,
     .alloc_increment = 0,
+    .max_count = -1,
     .interval = 1000
   };
 
