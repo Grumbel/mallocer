@@ -24,6 +24,7 @@
 #include <argp.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/prctl.h>
 
 extern void* etext;
 extern void* edata;
@@ -262,16 +263,25 @@ int main(int argc, char** argv)
   argp_parse(&argp, argc, argv, 0, 0, &opts);
 
   // change the processes name
-  if (strcmp(opts.name, argv[0]) != 0)
+  if (opts.name != NULL)
   {
-    argv[0] = opts.name;
-    if (execvp("/proc/self/exe", argv) < 0)
+    // this changes argv[0], which is used by 'ps'
+    if (strcmp(opts.name, argv[0]) != 0)
     {
-      perror("execv failed:");
-      exit(EXIT_FAILURE);
+      argv[0] = opts.name;
+      if (execvp("/proc/self/exe", argv) < 0)
+      {
+        perror("execv failed:");
+        exit(EXIT_FAILURE);
+      }
     }
+
+    // this sets /proc/$PID/comm which is used by Python's
+    // psutil.Proccess.name()
+    prctl(PR_SET_NAME, opts.name);
   }
 
+  printf("process is named '%s' with pid %d\n", argv[0], (int)getpid());
   run(&opts);
 
   return 0;
