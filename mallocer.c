@@ -25,6 +25,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/prctl.h>
+#include <signal.h>
 
 extern void* etext;
 extern void* edata;
@@ -239,6 +240,15 @@ static struct argp argp = {
   "A program to experiment with memory allocation"
 };
 
+void halt()
+{
+  while(true) {
+    printf("halting by going to sleep forever\n");
+    sleep(UINT_MAX);
+    printf("got woken up\n");
+  }
+}
+
 void run(struct Options* opts)
 {
   uint8_t first_byte = 0xff;
@@ -258,6 +268,12 @@ void run(struct Options* opts)
   char* last_buffer = NULL;
   while(true)
   {
+    if (opts->max_count != -1 &&
+        alloc_count > opts->max_count)
+    {
+      break;
+    }
+
     size_t len = opts->alloc_size + opts->alloc_increment * (alloc_count - 1);
     char* buffer;
     if (opts->calloc)
@@ -317,12 +333,22 @@ void run(struct Options* opts)
       }
     }
 
-    if (opts->interval < 0 ||
-        (opts->max_count != -1 && alloc_count > opts->max_count))
+    if (opts->interval < 0)
     {
       printf("going to sleep forever\n");
-      while(true) {
-        sleep(UINT_MAX);
+      unsigned int ret = 0;
+      while(true)
+      {
+        ret = sleep(UINT_MAX);
+        if (ret == 0)
+        {
+          printf("long sleep has finished, sleeping some more\n");
+        }
+        else
+        {
+          printf("got woken up, back to work\n");
+          break;
+        }
       }
     }
     else
@@ -330,6 +356,13 @@ void run(struct Options* opts)
       usleep(opts->interval * 1000);
     }
   }
+
+  halt();
+}
+
+void sigusr1_handler(int sig)
+{
+  printf("received SIGUSR1: %d\n", sig);
 }
 
 int main(int argc, char** argv)
@@ -369,6 +402,7 @@ int main(int argc, char** argv)
     prctl(PR_SET_NAME, opts.name);
   }
 
+  signal(SIGUSR1, sigusr1_handler);
   printf("process is named '%s' with pid %d\n", argv[0], (int)getpid());
   run(&opts);
 
