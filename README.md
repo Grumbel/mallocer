@@ -13,6 +13,28 @@ is allocated.
 The companion program to mallocer is
 [procmem](https://github.com/Grumbel/procmem).
 
+
+Compiling
+---------
+
+    mkdir build
+    cd build
+    cmake ..
+    make
+
+Optional flags for CMake:
+
+    -DCMAKE_BUILD_TYPE=Release
+    -DWARNINGS=ON
+    -DWERROR=ON
+
+
+Installing
+----------
+
+    make install
+
+
 Usage
 -----
 
@@ -30,6 +52,7 @@ Usage
     
     Mandatory or optional arguments to long options are also mandatory or optional
     for any corresponding short options.
+
 
 Running
 -------
